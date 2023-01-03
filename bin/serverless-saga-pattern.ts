@@ -16,18 +16,12 @@ const apiGateWayStack = new ApiGatewayStack(app, `${appName}RequestFrontStack`, 
   prefix: appName
 });
 
-const createOrderUseCaseStack = new CreateOrderUseCaseStack(app, `${appName}ControllerStack`, {
+const createOrderUseCaseStack = new CreateOrderUseCaseStack(app, `${appName}UseCaseStack`, {
   prefix: appName,
 });
 
-const routerStack = new RouterStack(app, `${appName}RouterStack`, {
+new OrderController(app, `${appName}ControllerStack`, {
   prefix: appName,
-  eventBusRule: apiGateWayStack.getRequestEventBusRule(),
+  eventBus: apiGateWayStack.getRequestEventBus(),
+  createOrderUseCase: createOrderUseCaseStack.getStateMachine(),
 });
-
-new OrderController({
-  router: routerStack.getRouter(),
-  createOrderUseCase: createOrderUseCaseStack.getTask()
-});
-
-routerStack.saveStateMachine();

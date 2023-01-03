@@ -1,6 +1,5 @@
 import { Stack, StackProps } from 'aws-cdk-lib';
-import * as stepFunctions from 'aws-cdk-lib/aws-stepfunctions';
-import { StepFunctionsStartExecution } from 'aws-cdk-lib/aws-stepfunctions-tasks';
+import { Pass, StateMachine } from 'aws-cdk-lib/aws-stepfunctions';
 import { Construct } from 'constructs';
       
 export interface CreateOrderUseCaseStackProps extends StackProps {
@@ -9,25 +8,16 @@ export interface CreateOrderUseCaseStackProps extends StackProps {
 }
 
 export class CreateOrderUseCaseStack extends Stack {
-  private task : StepFunctionsStartExecution
+  private createOrderStateMachine : StateMachine
   constructor(scope: Construct, id: string, props?: CreateOrderUseCaseStackProps) {
     super(scope, id, props);
-    const createOrderStateMachine = new stepFunctions.StateMachine(this, `${props?.prefix}RouterStateMachine`, {
+    this.createOrderStateMachine = new StateMachine(this, `${props?.prefix}RouterStateMachine`, {
       stateMachineName: `${props?.prefix}CreateOrderUseCase`,
-      definition: new stepFunctions.Pass(this, 'CreateOrderUseCase')
+      definition: new Pass(this, 'CreateOrderUseCase')
     });
-
-    this.task = new StepFunctionsStartExecution(
-      this,
-      `${props?.prefix}CreateOrderUseCaseTask`,
-      {
-        stateMachine: createOrderStateMachine,
-        associateWithParent: true,
-      }
-    );
   }
 
-  public getTask(): StepFunctionsStartExecution { 
-    return this.task;
+  public getStateMachine(): StateMachine { 
+    return this.createOrderStateMachine;
   }
 }

@@ -1,6 +1,8 @@
-import { AwsIntegration, AwsIntegrationProps, PassthroughBehavior, IntegrationResponse } from "aws-cdk-lib/aws-apigateway";
+import { AwsIntegration, PassthroughBehavior, IntegrationResponse } from "aws-cdk-lib/aws-apigateway";
+import * as openapix from '@alma-cdk/openapix';
 import { HttpMethod } from "aws-cdk-lib/aws-events";
 import { IRole } from "aws-cdk-lib/aws-iam";
+import { Construct } from "constructs";
 
 interface EventBusAwsIntegrationProps{
   credentialsRole: IRole,
@@ -9,8 +11,8 @@ interface EventBusAwsIntegrationProps{
   responseTemplate?: IntegrationResponse[]
 }
 
-export class EventBusAwsIntegration extends AwsIntegration { 
-  constructor(props: EventBusAwsIntegrationProps) {
+export class EventBusAwsIntegration extends openapix.AwsIntegration { 
+  constructor(scope: Construct, props: EventBusAwsIntegrationProps) {
     const responseTemplate = props.responseTemplate ?? [
       {
         statusCode: "200",
@@ -21,7 +23,7 @@ export class EventBusAwsIntegration extends AwsIntegration {
         }
       }
     ];
-    super({
+    super(scope, {
       service: "events",
       action: "PutEvents",
       region: props.region,
@@ -34,6 +36,7 @@ export class EventBusAwsIntegration extends AwsIntegration {
           "integration.request.header.Content-Type": "'application/x-amz-json-1.1'"
         },
         requestTemplates: props.requestTemplate,
+        integrationResponses: responseTemplate
       }
     });
   }

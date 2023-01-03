@@ -1,32 +1,22 @@
-import { Stack, StackProps, aws_stepfunctions } from 'aws-cdk-lib';
-import { RestApi } from 'aws-cdk-lib/aws-apigateway';
-import { EventBus, Rule } from 'aws-cdk-lib/aws-events';
+import { Stack, StackProps } from 'aws-cdk-lib';
+import { EventBus } from 'aws-cdk-lib/aws-events';
 import { Effect, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
 import { EventBusAwsIntegration } from './EventBusAwsIntegration';
-import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
-import { CloudWatchLogGroup } from 'aws-cdk-lib/aws-events-targets';
+import * as openapix from '@alma-cdk/openapix';
+import path = require('path');
       
 export interface ApiGatewayStackProps extends StackProps {
   readonly prefix: string
 }
 
 export class ApiGatewayStack extends Stack {
-  private requestEventBusRule: Rule;
+  private requestEventBus: EventBus;
   constructor(scope: Construct, id: string, props?: ApiGatewayStackProps) {
     super(scope, id, props);
     const region = Stack.of(this).region;
 
-    const restApi = new RestApi(this, `${props?.prefix}RestApi`, {
-      restApiName: `${props?.prefix}RestApi`,
-      deployOptions: {
-        stageName: "v1",
-        metricsEnabled: true,
-        dataTraceEnabled: true,
-      },
-    });
-
-    const requestEventBus = new EventBus(this, `${props?.prefix}RequestEventBus`, {
+    this.requestEventBus = new EventBus(this, `${props?.prefix}RequestEventBus`, {
       eventBusName: `${props?.prefix}RequestEventBus`
     });
 
@@ -37,12 +27,12 @@ export class ApiGatewayStack extends Stack {
     apiRole.addToPolicy(
       new PolicyStatement({
         effect: Effect.ALLOW,
-        resources: [requestEventBus.eventBusArn],
+        resources: [this.requestEventBus.eventBusArn],
         actions: ['events:PutEvents'],
       })
     );
 
-    const eventIntegration = new EventBusAwsIntegration({
+    const eventIntegration = new EventBusAwsIntegration(this, {
       credentialsRole: apiRole,
       region: region,
       requestTemplate: {
@@ -53,8 +43,8 @@ export class ApiGatewayStack extends Stack {
                 "Source": "$context.path",
                 "DetailType": "$context.method",
                 "Detail": "$input.body",
-                "resources": [ restApi.restApiId, ],
-                "EventBusName": requestEventBus.eventBusArn
+                "resources": [],
+                "EventBusName": this.requestEventBus.eventBusArn
               }
             ]
           }
@@ -62,28 +52,34 @@ export class ApiGatewayStack extends Stack {
       }
     });
 
-    this.requestEventBusRule = new Rule(this, `${props?.prefix}EventBusRule`, {
-      description: "api gateway event rule",
-      eventPattern: {
-        region: [ region ],
-        resources: [ restApi.restApiId ],
-      },
-      eventBus: requestEventBus
+    // API Gateway => VPC Endpoint　=> NLB => ECSの予定
+    const mockIntegration = new openapix.MockIntegration({
+      integrationResponses: [
+        {
+          statusCode: '200',
+        }
+      ]
     });
 
-    // debugger
-    const logGroup = new LogGroup(this, `${props?.prefix}EventLogGroup`, {
-       logGroupName: `/aws/events/${props?.prefix}EventLogGroup`,
-       retention: RetentionDays.TWO_WEEKS,
-     });
-
-    this.requestEventBusRule.addTarget(new CloudWatchLogGroup(logGroup));
-
-    restApi.root.addResource('order')
-      .addMethod('Post', eventIntegration);
+    new openapix.Api(this, `${props?.prefix}RestApi`, {
+      source: path.join(__dirname, '../schema/openapi.yaml'),
+      paths: {
+        '/order': {
+          post: eventIntegration,
+        },
+        '/order/{order_id}': {
+          get: mockIntegration,
+          put: eventIntegration,
+          delete: eventIntegration,
+        },
+        '/order/list': {
+          get: mockIntegration,
+        }
+      }
+    });
   }
 
-  public getRequestEventBusRule(): Rule { 
-    return this.requestEventBusRule;
+  public getRequestEventBus(): EventBus { 
+    return this.requestEventBus;
   }
 }

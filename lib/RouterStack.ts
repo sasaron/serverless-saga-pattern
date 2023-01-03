@@ -12,7 +12,6 @@ export interface RouterStackProps extends StackProps {
 
 export class RouterStack extends Stack {
   private router: Choice;
-  private routerStateMachine: StateMachine;
   private eventBusRule: Rule;
   private prefix: string;
 
@@ -36,6 +35,5 @@ export class RouterStack extends Stack {
     });
 
     this.eventBusRule.addTarget(new SfnStateMachine(routerStateMachine));
-
   }
 }
