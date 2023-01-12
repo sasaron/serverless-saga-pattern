@@ -3,7 +3,6 @@ import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { ApiGatewayStack } from '../lib/ApiGatewayStack';
 import { CreateOrderUseCaseStack } from '../lib/CreateOrderUsecaseStack';
-import { RouterStack } from '../lib/RouterStack';
 import { OrderController } from '../lib/OrderController';
 
 const app = new cdk.App();
@@ -24,4 +23,6 @@ new OrderController(app, `${appName}ControllerStack`, {
   prefix: appName,
   eventBus: apiGateWayStack.getRequestEventBus(),
   createOrderUseCase: createOrderUseCaseStack.getStateMachine(),
+  createOrderSource: apiGateWayStack.getCreateOrderMethodRequestArn(),
+  apiGatewayId: apiGateWayStack.getApiGateWayId(),
 });

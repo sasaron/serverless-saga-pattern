@@ -1,10 +1,11 @@
-import { Stack, StackProps } from 'aws-cdk-lib';
-import { EventBus } from 'aws-cdk-lib/aws-events';
+import { Duration, Stack, StackProps } from 'aws-cdk-lib';
+import { Archive, EventBus, HttpMethod } from 'aws-cdk-lib/aws-events';
 import { Effect, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
 import { EventBusAwsIntegration } from './EventBusAwsIntegration';
 import * as openapix from '@alma-cdk/openapix';
 import path = require('path');
+import { ApiDefinition, Method, RestApi } from 'aws-cdk-lib/aws-apigateway';
       
 export interface ApiGatewayStackProps extends StackProps {
   readonly prefix: string
@@ -12,6 +13,7 @@ export interface ApiGatewayStackProps extends StackProps {
 
 export class ApiGatewayStack extends Stack {
   private requestEventBus: EventBus;
+  private apiGateWay: openapix.Api;
   constructor(scope: Construct, id: string, props?: ApiGatewayStackProps) {
     super(scope, id, props);
     const region = Stack.of(this).region;
@@ -19,7 +21,7 @@ export class ApiGatewayStack extends Stack {
     this.requestEventBus = new EventBus(this, `${props?.prefix}RequestEventBus`, {
       eventBusName: `${props?.prefix}RequestEventBus`
     });
-
+    
     const apiRole = new Role(this, `${props?.prefix}ApiRole`, {
       assumedBy: new ServicePrincipal('apigateway.amazonaws.com'),
     });
@@ -41,7 +43,7 @@ export class ApiGatewayStack extends Stack {
             "Entries": [
               {
                 "Source": "$context.path",
-                "DetailType": "$context.method",
+                "DetailType": "$context.httpMethod",
                 "Detail": "$input.body",
                 "resources": [],
                 "EventBusName": this.requestEventBus.eventBusArn
@@ -61,7 +63,7 @@ export class ApiGatewayStack extends Stack {
       ]
     });
 
-    new openapix.Api(this, `${props?.prefix}RestApi`, {
+    this.apiGateWay = new openapix.Api(this, `${props?.prefix}RestApi`, {
       source: path.join(__dirname, '../schema/openapi.yaml'),
       paths: {
         '/order': {
@@ -81,5 +83,13 @@ export class ApiGatewayStack extends Stack {
 
   public getRequestEventBus(): EventBus { 
     return this.requestEventBus;
+  }
+
+  public getCreateOrderMethodRequestArn(): string { 
+    return this.apiGateWay.arnForExecuteApi('POST', '/order');
+  }
+
+  public getApiGateWayId(): string { 
+    return this.apiGateWay.restApiId;
   }
 }
